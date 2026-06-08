@@ -1,0 +1,881 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Diabetes Prediction System</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=JetBrains+Mono:wght@300;400;500&display=swap" rel="stylesheet" />
+<style>
+  /* ── Design tokens ─────────────────────────────────────────── */
+  :root {
+    --bg:        #090d0f;
+    --surface:   #0f1519;
+    --card:      #141c22;
+    --border:    #1e2d38;
+    --accent:    #00e5c3;
+    --accent2:   #ff6b6b;
+    --accent3:   #ffd166;
+    --text:      #e8f4f0;
+    --muted:     #6b8a96;
+    --safe:      #00e5c3;
+    --danger:    #ff6b6b;
+    --r:         12px;
+    --r-lg:      20px;
+    --font-head: 'Syne', sans-serif;
+    --font-mono: 'JetBrains Mono', monospace;
+  }
+
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  html { scroll-behavior: smooth; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--font-mono);
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+
+  /* ── Animated background grid ──────────────────────────────── */
+  body::before {
+    content: '';
+    position: fixed; inset: 0; z-index: 0;
+    background-image:
+      linear-gradient(rgba(0,229,195,.04) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(0,229,195,.04) 1px, transparent 1px);
+    background-size: 40px 40px;
+    animation: gridShift 20s linear infinite;
+    pointer-events: none;
+  }
+  @keyframes gridShift {
+    from { background-position: 0 0; }
+    to   { background-position: 40px 40px; }
+  }
+
+  /* ── Ambient glow blobs ─────────────────────────────────────── */
+  .blob {
+    position: fixed; border-radius: 50%;
+    filter: blur(120px); opacity: .12;
+    pointer-events: none; z-index: 0;
+    animation: blobFloat 12s ease-in-out infinite alternate;
+  }
+  .blob-1 { width:500px; height:500px; background:var(--accent);  top:-100px; left:-100px; }
+  .blob-2 { width:400px; height:400px; background:var(--accent2); bottom:-80px; right:-80px; animation-delay: -4s; }
+  @keyframes blobFloat {
+    from { transform: translate(0,0) scale(1); }
+    to   { transform: translate(30px,40px) scale(1.06); }
+  }
+
+  /* ── Layout ─────────────────────────────────────────────────── */
+  .wrap {
+    position: relative; z-index: 1;
+    max-width: 960px; margin: 0 auto;
+    padding: 0 20px 80px;
+  }
+
+  /* ── Header ─────────────────────────────────────────────────── */
+  header {
+    text-align: center;
+    padding: 64px 0 48px;
+    animation: fadeDown .8s ease both;
+  }
+  .badge {
+    display: inline-flex; align-items: center; gap: 8px;
+    border: 1px solid var(--border);
+    background: var(--surface);
+    padding: 6px 16px; border-radius: 999px;
+    font-size: 11px; letter-spacing: .12em; text-transform: uppercase;
+    color: var(--accent); margin-bottom: 24px;
+  }
+  .badge::before {
+    content: '●'; font-size: 8px;
+    animation: pulse 2s ease-in-out infinite;
+  }
+  @keyframes pulse {
+    0%,100% { opacity: 1; } 50% { opacity: .3; }
+  }
+  h1 {
+    font-family: var(--font-head);
+    font-size: clamp(2rem, 5vw, 3.4rem);
+    font-weight: 800;
+    line-height: 1.08;
+    letter-spacing: -.02em;
+    background: linear-gradient(135deg, var(--text) 40%, var(--accent));
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    margin-bottom: 16px;
+  }
+  .subtitle {
+    color: var(--muted); font-size: 14px;
+    max-width: 480px; margin: 0 auto;
+    line-height: 1.7;
+  }
+
+  /* ── Tabs ────────────────────────────────────────────────────── */
+  .tabs {
+    display: flex; gap: 4px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--r-lg);
+    padding: 4px;
+    margin-bottom: 32px;
+    animation: fadeUp .8s .2s ease both;
+  }
+  .tab-btn {
+    flex: 1; padding: 10px 20px;
+    border: none; background: transparent; cursor: pointer;
+    font-family: var(--font-mono);
+    font-size: 13px; font-weight: 500;
+    color: var(--muted);
+    border-radius: calc(var(--r-lg) - 4px);
+    transition: all .25s;
+    letter-spacing: .03em;
+  }
+  .tab-btn.active {
+    background: var(--accent);
+    color: var(--bg);
+    box-shadow: 0 0 24px rgba(0,229,195,.3);
+  }
+  .tab-btn:not(.active):hover { color: var(--text); background: var(--border); }
+
+  /* ── Cards ───────────────────────────────────────────────────── */
+  .card {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: var(--r-lg);
+    padding: 28px 32px;
+    margin-bottom: 20px;
+    animation: fadeUp .7s ease both;
+  }
+  .card-title {
+    font-family: var(--font-head);
+    font-size: 16px; font-weight: 700;
+    color: var(--accent);
+    letter-spacing: .05em; text-transform: uppercase;
+    margin-bottom: 20px;
+    display: flex; align-items: center; gap: 10px;
+  }
+  .card-title::after {
+    content: ''; flex: 1;
+    height: 1px; background: var(--border);
+  }
+
+  /* ── Form grid ───────────────────────────────────────────────── */
+  .form-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+    gap: 16px;
+  }
+  .field { display: flex; flex-direction: column; gap: 6px; }
+  label {
+    font-size: 11px; letter-spacing: .1em;
+    text-transform: uppercase; color: var(--muted);
+  }
+  input[type="number"], input[type="file"] {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--r);
+    padding: 10px 14px;
+    color: var(--text);
+    font-family: var(--font-mono);
+    font-size: 14px;
+    outline: none;
+    transition: border-color .2s, box-shadow .2s;
+    width: 100%;
+  }
+  input[type="number"]:focus {
+    border-color: var(--accent);
+    box-shadow: 0 0 0 3px rgba(0,229,195,.12);
+  }
+  input[type="number"]::placeholder { color: var(--muted); }
+
+  /* ── Buttons ─────────────────────────────────────────────────── */
+  .btn {
+    display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+    padding: 13px 32px;
+    border: none; border-radius: var(--r);
+    font-family: var(--font-mono);
+    font-size: 14px; font-weight: 500;
+    cursor: pointer; transition: all .2s;
+    letter-spacing: .04em;
+  }
+  .btn-primary {
+    background: var(--accent);
+    color: var(--bg);
+    box-shadow: 0 4px 24px rgba(0,229,195,.25);
+  }
+  .btn-primary:hover:not(:disabled) {
+    background: #00ffda;
+    box-shadow: 0 6px 32px rgba(0,229,195,.4);
+    transform: translateY(-1px);
+  }
+  .btn-primary:disabled { opacity: .4; cursor: not-allowed; }
+  .btn-ghost {
+    background: transparent;
+    border: 1px solid var(--border);
+    color: var(--text);
+  }
+  .btn-ghost:hover { border-color: var(--accent); color: var(--accent); }
+
+  /* ── Result panel ────────────────────────────────────────────── */
+  #result-panel {
+    display: none;
+    animation: fadeUp .5s ease both;
+  }
+  #result-panel.show { display: block; }
+
+  .result-main {
+    display: flex; align-items: center; gap: 24px;
+    flex-wrap: wrap;
+  }
+  .verdict {
+    font-family: var(--font-head);
+    font-size: clamp(1.6rem, 4vw, 2.6rem);
+    font-weight: 800; letter-spacing: -.02em;
+  }
+  .verdict.safe   { color: var(--safe); text-shadow: 0 0 40px rgba(0,229,195,.4); }
+  .verdict.danger { color: var(--danger); text-shadow: 0 0 40px rgba(255,107,107,.4); }
+
+  /* ── Confidence bar ──────────────────────────────────────────── */
+  .conf-wrap { flex: 1; min-width: 200px; }
+  .conf-label {
+    display: flex; justify-content: space-between;
+    font-size: 11px; color: var(--muted);
+    text-transform: uppercase; letter-spacing: .08em;
+    margin-bottom: 8px;
+  }
+  .conf-track {
+    height: 8px; background: var(--border);
+    border-radius: 999px; overflow: hidden;
+  }
+  .conf-bar {
+    height: 100%; border-radius: 999px;
+    transition: width 1s cubic-bezier(.16,1,.3,1);
+    background: var(--accent);
+  }
+  .conf-bar.danger { background: var(--danger); }
+
+  /* ── Proba pills ──────────────────────────────────────────────── */
+  .proba-row { display: flex; gap: 12px; margin-top: 20px; flex-wrap: wrap; }
+  .proba-pill {
+    padding: 8px 16px; border-radius: var(--r);
+    font-size: 13px; border: 1px solid var(--border);
+    background: var(--surface);
+  }
+  .proba-pill strong { display: block; font-size: 11px; color: var(--muted); margin-bottom: 2px; text-transform: uppercase; letter-spacing: .08em; }
+
+  /* ── JSON viewer ─────────────────────────────────────────────── */
+  .json-block {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--r);
+    padding: 16px;
+    font-size: 12px; line-height: 1.7;
+    overflow-x: auto; max-height: 320px;
+    white-space: pre-wrap; word-break: break-all;
+    color: #8be0c8;
+  }
+
+  /* ── Status chip ─────────────────────────────────────────────── */
+  .status-chip {
+    display: inline-flex; align-items: center; gap: 6px;
+    padding: 4px 12px; border-radius: 999px;
+    font-size: 11px; letter-spacing: .08em; text-transform: uppercase;
+  }
+  .chip-ok   { background: rgba(0,229,195,.1); color: var(--accent); border: 1px solid rgba(0,229,195,.2); }
+  .chip-err  { background: rgba(255,107,107,.1); color: var(--accent2); border: 1px solid rgba(255,107,107,.2); }
+
+  /* ── API config ──────────────────────────────────────────────── */
+  .api-row {
+    display: flex; gap: 10px; align-items: center; flex-wrap: wrap;
+    margin-bottom: 24px;
+  }
+  .api-row input {
+    flex: 1; min-width: 220px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--r);
+    padding: 9px 14px; color: var(--text);
+    font-family: var(--font-mono); font-size: 13px; outline: none;
+    transition: border-color .2s;
+  }
+  .api-row input:focus { border-color: var(--accent); }
+
+  /* ── Loader ──────────────────────────────────────────────────── */
+  .spinner {
+    display: none; width: 18px; height: 18px;
+    border: 2px solid rgba(9,13,15,.4);
+    border-top-color: var(--bg);
+    border-radius: 50%;
+    animation: spin .7s linear infinite;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  /* ── Batch results table ─────────────────────────────────────── */
+  .table-wrap { overflow-x: auto; max-height: 360px; }
+  table { width: 100%; border-collapse: collapse; font-size: 12px; }
+  thead { position: sticky; top: 0; background: var(--surface); z-index: 2; }
+  th {
+    padding: 10px 12px;
+    text-align: left; font-weight: 500;
+    color: var(--muted); letter-spacing: .07em; text-transform: uppercase;
+    border-bottom: 1px solid var(--border);
+  }
+  td {
+    padding: 9px 12px;
+    border-bottom: 1px solid rgba(30,45,56,.5);
+    vertical-align: middle;
+  }
+  tr:hover td { background: rgba(0,229,195,.03); }
+  .tag {
+    padding: 3px 10px; border-radius: 999px;
+    font-size: 11px; font-weight: 500; letter-spacing: .06em;
+  }
+  .tag.safe   { background: rgba(0,229,195,.12); color: var(--safe); }
+  .tag.danger { background: rgba(255,107,107,.12); color: var(--danger); }
+
+  /* ── Health panel ────────────────────────────────────────────── */
+  .health-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 12px; }
+  .health-item {
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: var(--r); padding: 14px 16px;
+  }
+  .health-key { font-size: 10px; color: var(--muted); text-transform: uppercase; letter-spacing: .1em; margin-bottom: 6px; }
+  .health-val { font-size: 14px; color: var(--text); }
+
+  /* ── File drop zone ──────────────────────────────────────────── */
+  .drop-zone {
+    border: 2px dashed var(--border);
+    border-radius: var(--r-lg);
+    padding: 40px 20px;
+    text-align: center;
+    cursor: pointer; transition: all .25s;
+    position: relative;
+  }
+  .drop-zone:hover, .drop-zone.drag-over {
+    border-color: var(--accent);
+    background: rgba(0,229,195,.04);
+  }
+  .drop-zone input[type="file"] {
+    position: absolute; inset: 0; opacity: 0; cursor: pointer;
+    width: 100%; height: 100%;
+  }
+  .drop-icon { font-size: 36px; margin-bottom: 12px; }
+  .drop-text { color: var(--muted); font-size: 13px; }
+  .drop-text strong { color: var(--accent); }
+
+  /* ── Animations ──────────────────────────────────────────────── */
+  @keyframes fadeDown {
+    from { opacity: 0; transform: translateY(-20px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+  @keyframes fadeUp {
+    from { opacity: 0; transform: translateY(20px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+
+  /* ── Toast ───────────────────────────────────────────────────── */
+  #toast {
+    position: fixed; bottom: 24px; right: 24px; z-index: 999;
+    padding: 12px 20px; border-radius: var(--r);
+    background: var(--card); border: 1px solid var(--border);
+    font-size: 13px; color: var(--text);
+    opacity: 0; transform: translateY(10px);
+    transition: all .3s;
+    pointer-events: none; max-width: 320px;
+  }
+  #toast.show { opacity: 1; transform: translateY(0); }
+
+  /* ── Responsive ──────────────────────────────────────────────── */
+  @media (max-width: 600px) {
+    .card { padding: 20px 18px; }
+    .form-grid { grid-template-columns: 1fr 1fr; }
+  }
+</style>
+</head>
+<body>
+
+<div class="blob blob-1"></div>
+<div class="blob blob-2"></div>
+
+<div class="wrap">
+
+  <!-- Header -->
+  <header>
+    <div class="badge">AI · Clinical Decision Support</div>
+    <h1>Diabetes Prediction<br/>System</h1>
+    <p class="subtitle">
+      SVM model trained on PIMA Indians dataset · 92% accuracy ·
+      Enter patient vitals for an instant risk assessment.
+    </p>
+  </header>
+
+  <!-- API URL config -->
+  <div class="card" style="animation-delay:.1s">
+    <div class="card-title">API Configuration</div>
+    <div class="api-row">
+      <input id="api-url" type="text" value="http://localhost:5000"
+             placeholder="https://your-api.onrender.com" />
+      <button class="btn btn-ghost" onclick="checkHealth()">Check Health</button>
+      <span id="health-chip"></span>
+    </div>
+    <div id="health-details" style="display:none"></div>
+  </div>
+
+  <!-- Tabs -->
+  <div class="tabs" style="animation-delay:.15s">
+    <button class="tab-btn active" onclick="switchTab('single',this)">Single Prediction</button>
+    <button class="tab-btn" onclick="switchTab('batch',this)">Batch CSV</button>
+    <button class="tab-btn" onclick="switchTab('docs',this)">API Docs</button>
+  </div>
+
+  <!-- ══ TAB: Single Prediction ══════════════════════════════════ -->
+  <div id="tab-single">
+
+    <div class="card" style="animation-delay:.2s">
+      <div class="card-title">Patient Input</div>
+      <div class="form-grid">
+        <div class="field"><label>Pregnancies</label>
+          <input type="number" id="f-Pregnancies" placeholder="5" min="0" max="20" /></div>
+        <div class="field"><label>Glucose (mg/dL)</label>
+          <input type="number" id="f-Glucose" placeholder="166" min="0" max="300" /></div>
+        <div class="field"><label>Blood Pressure (mmHg)</label>
+          <input type="number" id="f-BloodPressure" placeholder="72" min="0" max="200" /></div>
+        <div class="field"><label>Skin Thickness (mm)</label>
+          <input type="number" id="f-SkinThickness" placeholder="19" min="0" max="100" /></div>
+        <div class="field"><label>Insulin (µU/mL)</label>
+          <input type="number" id="f-Insulin" placeholder="175" min="0" max="900" /></div>
+        <div class="field"><label>BMI (kg/m²)</label>
+          <input type="number" id="f-BMI" placeholder="25.8" step="0.1" min="0" max="70" /></div>
+        <div class="field"><label>Diabetes Pedigree Fn</label>
+          <input type="number" id="f-DiabetesPedigreeFunction" placeholder="0.587" step="0.001" min="0" max="3" /></div>
+        <div class="field"><label>Age (years)</label>
+          <input type="number" id="f-Age" placeholder="51" min="1" max="120" /></div>
+      </div>
+
+      <div style="display:flex; gap:12px; margin-top:24px; flex-wrap:wrap">
+        <button class="btn btn-primary" id="predict-btn" onclick="runPredict()">
+          <span class="spinner" id="predict-spinner"></span>
+          <span id="predict-label">Run Prediction</span>
+        </button>
+        <button class="btn btn-ghost" onclick="fillSample()">Load Sample Data</button>
+        <button class="btn btn-ghost" onclick="clearForm()">Clear</button>
+      </div>
+    </div>
+
+    <!-- Result -->
+    <div class="card" id="result-panel" style="animation-delay:0s">
+      <div class="card-title">Result</div>
+      <div class="result-main">
+        <div>
+          <div style="font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.1em;margin-bottom:6px">Diagnosis</div>
+          <div class="verdict" id="verdict-text"></div>
+        </div>
+        <div class="conf-wrap">
+          <div class="conf-label">
+            <span>Confidence</span>
+            <span id="conf-pct"></span>
+          </div>
+          <div class="conf-track"><div class="conf-bar" id="conf-bar" style="width:0%"></div></div>
+        </div>
+      </div>
+      <div class="proba-row" id="proba-row"></div>
+      <div style="margin-top:20px">
+        <div style="font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.1em;margin-bottom:8px">Raw API Response</div>
+        <div class="json-block" id="raw-json"></div>
+      </div>
+    </div>
+
+  </div><!-- /tab-single -->
+
+  <!-- ══ TAB: Batch CSV ══════════════════════════════════════════ -->
+  <div id="tab-batch" style="display:none">
+
+    <div class="card">
+      <div class="card-title">Upload CSV</div>
+      <div class="drop-zone" id="drop-zone">
+        <input type="file" id="csv-file" accept=".csv"
+               onchange="onFileChange(this)" />
+        <div class="drop-icon">📂</div>
+        <div class="drop-text">
+          <strong>Click to browse</strong> or drag & drop your CSV<br/>
+          Columns: Pregnancies, Glucose, BloodPressure, SkinThickness,<br/>
+          Insulin, BMI, DiabetesPedigreeFunction, Age
+        </div>
+        <div id="file-name" style="margin-top:10px;color:var(--accent);font-size:13px"></div>
+      </div>
+
+      <div style="display:flex;gap:12px;margin-top:20px;flex-wrap:wrap">
+        <button class="btn btn-primary" id="batch-btn" onclick="runBatch()">
+          <span class="spinner" id="batch-spinner"></span>
+          <span id="batch-label">Predict All Rows</span>
+        </button>
+        <button class="btn btn-ghost" onclick="downloadBatch()">Download Results CSV</button>
+      </div>
+    </div>
+
+    <div class="card" id="batch-results" style="display:none">
+      <div class="card-title">Batch Results</div>
+      <div id="batch-summary" style="display:flex;gap:16px;flex-wrap:wrap;margin-bottom:20px"></div>
+      <div class="table-wrap">
+        <table>
+          <thead><tr id="batch-thead"></tr></thead>
+          <tbody id="batch-tbody"></tbody>
+        </table>
+      </div>
+    </div>
+
+  </div><!-- /tab-batch -->
+
+  <!-- ══ TAB: API Docs ═══════════════════════════════════════════ -->
+  <div id="tab-docs" style="display:none">
+
+    <div class="card">
+      <div class="card-title">Endpoints</div>
+
+      <div style="display:flex;flex-direction:column;gap:20px">
+
+        <div class="health-item">
+          <div class="health-key">GET /health</div>
+          <div style="color:var(--muted);font-size:12px;line-height:1.7;margin-top:4px">
+            Service liveness probe. Returns model status, version, and feature names.
+          </div>
+        </div>
+
+        <div class="health-item">
+          <div class="health-key">POST /predict</div>
+          <div style="color:var(--muted);font-size:12px;line-height:1.7;margin-top:4px">
+            Single prediction from JSON body. Returns diagnosis label, confidence score, and per-class probabilities.
+          </div>
+          <div class="json-block" style="margin-top:12px">POST /predict
+Content-Type: application/json
+
+{
+  "Pregnancies": 5,
+  "Glucose": 166,
+  "BloodPressure": 72,
+  "SkinThickness": 19,
+  "Insulin": 175,
+  "BMI": 25.8,
+  "DiabetesPedigreeFunction": 0.587,
+  "Age": 51
+}
+
+→ 200 OK
+{
+  "status": "success",
+  "prediction": "Diabetic",
+  "prediction_code": 1,
+  "confidence": 0.87,
+  "probabilities": {
+    "not_diabetic": 0.13,
+    "diabetic": 0.87
+  }
+}</div>
+        </div>
+
+        <div class="health-item">
+          <div class="health-key">POST /predict-batch</div>
+          <div style="color:var(--muted);font-size:12px;line-height:1.7;margin-top:4px">
+            Multipart CSV upload (field name: <code style="color:var(--accent)">file</code>).
+            Returns JSON results + summary. Add <code style="color:var(--accent)">?download=true</code> to get a CSV response.
+          </div>
+        </div>
+
+        <div class="health-item">
+          <div class="health-key">GET /model-info</div>
+          <div style="color:var(--muted);font-size:12px;line-height:1.7;margin-top:4px">
+            Returns model type, kernel, support vector counts, scaler statistics, and test accuracy.
+          </div>
+        </div>
+
+        <div class="health-item">
+          <div class="health-key">GET /sample-input</div>
+          <div style="color:var(--muted);font-size:12px;line-height:1.7;margin-top:4px">
+            Returns a ready-to-use sample payload for /predict.
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-title">Deploy to Render / Railway</div>
+      <div class="json-block"># Procfile (for Render / Railway)
+web: gunicorn app:app --bind 0.0.0.0:$PORT
+
+# Or run locally:
+cd backend
+pip install -r requirements.txt
+python train_model.py   # generates model.pkl + scaler.pkl
+python app.py           # starts on http://localhost:5000
+
+# Environment variables (optional):
+PORT=5000
+FLASK_DEBUG=false
+ALLOWED_ORIGINS=https://your-frontend.com</div>
+    </div>
+
+  </div><!-- /tab-docs -->
+
+</div><!-- /wrap -->
+
+<div id="toast"></div>
+
+<script>
+// ── State ─────────────────────────────────────────────────────────────────
+let batchResultData = null;
+
+// ── Helpers ───────────────────────────────────────────────────────────────
+const apiBase = () => document.getElementById('api-url').value.replace(/\/$/, '');
+
+function toast(msg, err = false) {
+  const el = document.getElementById('toast');
+  el.textContent = msg;
+  el.style.borderColor = err ? 'rgba(255,107,107,.3)' : 'rgba(0,229,195,.3)';
+  el.classList.add('show');
+  setTimeout(() => el.classList.remove('show'), 3000);
+}
+
+function setLoading(id, on) {
+  const spinner = document.getElementById(id + '-spinner');
+  const label   = document.getElementById(id + '-label');
+  if (spinner) spinner.style.display = on ? 'block' : 'none';
+  if (label)   label.style.opacity   = on ? 0 : 1;
+  const btn = document.getElementById(id + '-btn');
+  if (btn) btn.disabled = on;
+}
+
+// ── Tabs ──────────────────────────────────────────────────────────────────
+function switchTab(name, btn) {
+  ['single','batch','docs'].forEach(t => {
+    document.getElementById('tab-' + t).style.display = 'none';
+  });
+  document.getElementById('tab-' + name).style.display = 'block';
+  document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+}
+
+// ── Fill sample ───────────────────────────────────────────────────────────
+const SAMPLE = {
+  Pregnancies: 5, Glucose: 166, BloodPressure: 72,
+  SkinThickness: 19, Insulin: 175, BMI: 25.8,
+  DiabetesPedigreeFunction: 0.587, Age: 51
+};
+
+function fillSample() {
+  Object.entries(SAMPLE).forEach(([k, v]) => {
+    const el = document.getElementById('f-' + k);
+    if (el) el.value = v;
+  });
+  toast('Sample data loaded');
+}
+
+function clearForm() {
+  ['Pregnancies','Glucose','BloodPressure','SkinThickness',
+   'Insulin','BMI','DiabetesPedigreeFunction','Age'].forEach(k => {
+    const el = document.getElementById('f-' + k);
+    if (el) el.value = '';
+  });
+  document.getElementById('result-panel').classList.remove('show');
+}
+
+// ── Health check ──────────────────────────────────────────────────────────
+async function checkHealth() {
+  const chip = document.getElementById('health-chip');
+  const det  = document.getElementById('health-details');
+  chip.innerHTML = '<span class="status-chip chip-ok">Checking…</span>';
+  try {
+    const res  = await fetch(apiBase() + '/health');
+    const data = await res.json();
+    if (res.ok) {
+      chip.innerHTML = '<span class="status-chip chip-ok">● API Online</span>';
+      det.style.display = 'block';
+      det.innerHTML = `<div class="health-grid" style="margin-top:16px">
+        ${Object.entries({
+          Service: data.service || '–',
+          Version: data.version || '–',
+          Model: data.model_status || '–',
+          Features: (data.features || []).length + ' inputs',
+        }).map(([k,v]) => `<div class="health-item">
+          <div class="health-key">${k}</div>
+          <div class="health-val">${v}</div>
+        </div>`).join('')}
+      </div>`;
+      toast('API is online ✓');
+    } else {
+      throw new Error(data.message || 'Bad response');
+    }
+  } catch (e) {
+    chip.innerHTML = '<span class="status-chip chip-err">● Offline</span>';
+    det.style.display = 'none';
+    toast('Cannot reach API: ' + e.message, true);
+  }
+}
+
+// ── Single prediction ─────────────────────────────────────────────────────
+async function runPredict() {
+  const fields = ['Pregnancies','Glucose','BloodPressure','SkinThickness',
+                  'Insulin','BMI','DiabetesPedigreeFunction','Age'];
+  const payload = {};
+  for (const f of fields) {
+    const val = document.getElementById('f-' + f).value;
+    if (val === '') { toast('Please fill in: ' + f, true); return; }
+    payload[f] = parseFloat(val);
+  }
+
+  setLoading('predict', true);
+  document.getElementById('predict-label').textContent = 'Predicting…';
+  try {
+    const res  = await fetch(apiBase() + '/predict', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    });
+    const data = await res.json();
+
+    if (!res.ok) {
+      const msg = data.message || 'Prediction failed';
+      const details = data.details ? '\n• ' + (Array.isArray(data.details) ? data.details.join('\n• ') : data.details) : '';
+      toast(msg + details, true);
+      return;
+    }
+
+    showResult(data);
+  } catch (e) {
+    toast('Network error: ' + e.message, true);
+  } finally {
+    setLoading('predict', false);
+    document.getElementById('predict-label').textContent = 'Run Prediction';
+  }
+}
+
+function showResult(data) {
+  const panel    = document.getElementById('result-panel');
+  const verdict  = document.getElementById('verdict-text');
+  const confPct  = document.getElementById('conf-pct');
+  const confBar  = document.getElementById('conf-bar');
+  const probaRow = document.getElementById('proba-row');
+  const rawJson  = document.getElementById('raw-json');
+
+  const isDiabetic = data.prediction_code === 1;
+  verdict.textContent = data.prediction || '–';
+  verdict.className   = 'verdict ' + (isDiabetic ? 'danger' : 'safe');
+
+  const pct = Math.round((data.confidence || 0) * 100);
+  confPct.textContent = pct + '%';
+  confBar.style.width = pct + '%';
+  confBar.className   = 'conf-bar ' + (isDiabetic ? 'danger' : '');
+
+  const p = data.probabilities || {};
+  probaRow.innerHTML = `
+    <div class="proba-pill">
+      <strong>Not Diabetic</strong>${Math.round((p.not_diabetic||0)*100)}%
+    </div>
+    <div class="proba-pill">
+      <strong>Diabetic</strong>${Math.round((p.diabetic||0)*100)}%
+    </div>`;
+
+  rawJson.textContent = JSON.stringify(data, null, 2);
+  panel.classList.add('show');
+  panel.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+}
+
+// ── Batch CSV ─────────────────────────────────────────────────────────────
+function onFileChange(input) {
+  const name = input.files[0]?.name || '';
+  document.getElementById('file-name').textContent = name ? '📄 ' + name : '';
+}
+
+// Drag-over styling
+const dz = document.getElementById('drop-zone');
+dz?.addEventListener('dragover', e => { e.preventDefault(); dz.classList.add('drag-over'); });
+dz?.addEventListener('dragleave', () => dz.classList.remove('drag-over'));
+dz?.addEventListener('drop', () => dz.classList.remove('drag-over'));
+
+async function runBatch() {
+  const fileInput = document.getElementById('csv-file');
+  if (!fileInput.files.length) { toast('Please select a CSV file first', true); return; }
+
+  const fd = new FormData();
+  fd.append('file', fileInput.files[0]);
+
+  setLoading('batch', true);
+  document.getElementById('batch-label').textContent = 'Processing…';
+  try {
+    const res  = await fetch(apiBase() + '/predict-batch', { method: 'POST', body: fd });
+    const data = await res.json();
+    if (!res.ok) { toast((data.message || 'Batch failed'), true); return; }
+    batchResultData = data;
+    renderBatchResults(data);
+    toast(`Batch complete – ${data.summary?.total_records || '?'} predictions`);
+  } catch (e) {
+    toast('Network error: ' + e.message, true);
+  } finally {
+    setLoading('batch', false);
+    document.getElementById('batch-label').textContent = 'Predict All Rows';
+  }
+}
+
+function renderBatchResults(data) {
+  const panel   = document.getElementById('batch-results');
+  const summary = document.getElementById('batch-summary');
+  const thead   = document.getElementById('batch-thead');
+  const tbody   = document.getElementById('batch-tbody');
+
+  const s = data.summary || {};
+  summary.innerHTML = [
+    ['Total Rows',     s.total_records     || 0],
+    ['Diabetic',       s.diabetic_count    || 0],
+    ['Not Diabetic',   s.not_diabetic_count|| 0],
+    ['Avg Confidence', ((s.avg_confidence||0)*100).toFixed(1) + '%'],
+  ].map(([k,v]) => `<div class="proba-pill"><strong>${k}</strong>${v}</div>`).join('');
+
+  const results = data.results || [];
+  if (!results.length) { panel.style.display = 'block'; return; }
+
+  const cols = Object.keys(results[0]);
+  thead.innerHTML = cols.map(c => `<th>${c}</th>`).join('');
+  tbody.innerHTML = results.slice(0, 200).map(row => `
+    <tr>${cols.map(c => {
+      if (c === 'Prediction') {
+        const cls = row[c] === 'Diabetic' ? 'danger' : 'safe';
+        return `<td><span class="tag ${cls}">${row[c]}</span></td>`;
+      }
+      if (c === 'Confidence' || c === 'Prob_Diabetic' || c === 'Prob_Not_Diabetic') {
+        return `<td>${(parseFloat(row[c]||0)*100).toFixed(1)}%</td>`;
+      }
+      return `<td>${row[c] ?? '–'}</td>`;
+    }).join('')}</tr>`).join('');
+
+  if (results.length > 200) {
+    tbody.innerHTML += `<tr><td colspan="${cols.length}" style="color:var(--muted);text-align:center;padding:16px">
+      … ${results.length - 200} more rows (download CSV for full results)</td></tr>`;
+  }
+
+  panel.style.display = 'block';
+}
+
+async function downloadBatch() {
+  const fileInput = document.getElementById('csv-file');
+  if (!fileInput.files.length) { toast('Upload a CSV first', true); return; }
+  const fd = new FormData();
+  fd.append('file', fileInput.files[0]);
+  try {
+    const res = await fetch(apiBase() + '/predict-batch?download=true', { method:'POST', body:fd });
+    if (!res.ok) { toast('Download failed', true); return; }
+    const blob = await res.blob();
+    const url  = URL.createObjectURL(blob);
+    const a    = document.createElement('a');
+    a.href = url; a.download = 'diabetes_predictions.csv';
+    a.click(); URL.revokeObjectURL(url);
+    toast('CSV downloaded');
+  } catch (e) {
+    toast('Error: ' + e.message, true);
+  }
+}
+</script>
+</body>
+</html>
