@@ -417,7 +417,7 @@
   <div class="card" style="animation-delay:.1s">
     <div class="card-title">API Configuration</div>
     <div class="api-row">
-      <input id="api-url" type="text" value="http://localhost:5000"
+      <input id="api-url" type="text" value="http://diabetes-prediction-system-production-2360.up.railway.app"
              placeholder="https://your-api.onrender.com" />
       <button class="btn btn-ghost" onclick="checkHealth()">Check Health</button>
       <span id="health-chip"></span>
@@ -610,7 +610,7 @@ web: gunicorn app:app --bind 0.0.0.0:$PORT
 cd backend
 pip install -r requirements.txt
 python train_model.py   # generates model.pkl + scaler.pkl
-python app.py           # starts on http://localhost:5000
+python app.py           # starts on http://diabetes-prediction-system-production-2360.up.railway.app
 
 # Environment variables (optional):
 PORT=5000
